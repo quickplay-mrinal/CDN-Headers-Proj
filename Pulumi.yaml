@@ -1,0 +1,8 @@
+name: qp-iac-cdn-headers-proj
+runtime: python
+description: CDN Headers Project with CloudFront, ALB, JWT validation and secrets rotation
+template:
+  config:
+    aws:region:
+      description: The AWS region to deploy into
+      default: us-east-1
