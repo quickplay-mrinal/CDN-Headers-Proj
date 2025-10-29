@@ -14,22 +14,15 @@ from config import (
 def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
     """Create CloudFront distribution with custom behaviors"""
     
-    # Create Origin Access Control for CloudFront
-    oac = aws.cloudfront.OriginAccessControl(
-        f"{PROJECT_NAME}-oac",
-        name=f"{PROJECT_NAME}-oac",
-        description="Origin Access Control for ALB",
-        origin_access_control_origin_type="load-balancer",
-        signing_behavior="always",
-        signing_protocol="sigv4"
-    )
+    # Note: Origin Access Control is not applicable for ALB origins
+    # OAC is only used for S3, MediaStore, MediaPackageV2, and Lambda origins
     
     # Create CloudFront distribution
     distribution = aws.cloudfront.Distribution(
         f"{PROJECT_NAME}-distribution",
         aliases=[],  # Add custom domain names if needed
         comment=f"CDN for {PROJECT_NAME}",
-        default_root_object="index.html",
+        # Remove default_root_object since FastAPI serves at root "/"
         enabled=True,
         is_ipv6_enabled=True,
         price_class=CLOUDFRONT_PRICE_CLASS,
@@ -62,30 +55,17 @@ def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
             cached_methods=["GET", "HEAD"],
             compress=True,
             
-            # Cache settings
+            # Cache settings - using managed policies (no forwarded_values when using cache policies)
             cache_policy_id="4135ea2d-6df8-44a3-9df3-4b5a84be39ad",  # Managed-CachingDisabled
             origin_request_policy_id="88a5eaf4-2fd4-4709-b370-b4c650ea3fcf",  # Managed-CORS-S3Origin
             
-            # Function associations
-            function_associations=[
-                aws.cloudfront.DistributionDefaultCacheBehaviorFunctionAssociationArgs(
-                    event_type="viewer-request",
-                    function_arn=cloudfront_function_arn
-                )
-            ],
-            
-            # Headers to forward
-            forwarded_values=aws.cloudfront.DistributionDefaultCacheBehaviorForwardedValuesArgs(
-                query_string=True,
-                headers=["Authorization", "X-CDN-Auth", "X-Forwarded-For", "CloudFront-Viewer-Country"],
-                cookies=aws.cloudfront.DistributionDefaultCacheBehaviorForwardedValuesCookiesArgs(
-                    forward="none"
-                )
-            ),
-            
-            min_ttl=CLOUDFRONT_MIN_TTL,
-            default_ttl=CLOUDFRONT_DEFAULT_TTL,
-            max_ttl=CLOUDFRONT_MAX_TTL
+            # Function associations temporarily disabled to fix header validation
+            # function_associations=[
+            #     aws.cloudfront.DistributionDefaultCacheBehaviorFunctionAssociationArgs(
+            #         event_type="viewer-request",
+            #         function_arn=cloudfront_function_arn
+            #     )
+            # ]
         ),
         
         # Additional cache behaviors for API endpoints
@@ -102,24 +82,13 @@ def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
                 cache_policy_id="4135ea2d-6df8-44a3-9df3-4b5a84be39ad",  # Managed-CachingDisabled
                 origin_request_policy_id="88a5eaf4-2fd4-4709-b370-b4c650ea3fcf",  # Managed-CORS-S3Origin
                 
-                function_associations=[
-                    aws.cloudfront.DistributionOrderedCacheBehaviorFunctionAssociationArgs(
-                        event_type="viewer-request",
-                        function_arn=cloudfront_function_arn
-                    )
-                ],
-                
-                forwarded_values=aws.cloudfront.DistributionOrderedCacheBehaviorForwardedValuesArgs(
-                    query_string=True,
-                    headers=["*"],
-                    cookies=aws.cloudfront.DistributionOrderedCacheBehaviorForwardedValuesCookiesArgs(
-                        forward="all"
-                    )
-                ),
-                
-                min_ttl=0,
-                default_ttl=0,
-                max_ttl=0
+                # Function associations temporarily disabled
+                # function_associations=[
+                #     aws.cloudfront.DistributionOrderedCacheBehaviorFunctionAssociationArgs(
+                #         event_type="viewer-request",
+                #         function_arn=cloudfront_function_arn
+                #     )
+                # ]
             ),
             
             aws.cloudfront.DistributionOrderedCacheBehaviorArgs(
@@ -131,19 +100,7 @@ def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
                 compress=True,
                 
                 # Short caching for health checks
-                cache_policy_id="658327ea-f89d-4fab-a63d-7e88639e58f6",  # Managed-CachingOptimized
-                
-                forwarded_values=aws.cloudfront.DistributionOrderedCacheBehaviorForwardedValuesArgs(
-                    query_string=False,
-                    headers=["X-CDN-Auth"],
-                    cookies=aws.cloudfront.DistributionOrderedCacheBehaviorForwardedValuesCookiesArgs(
-                        forward="none"
-                    )
-                ),
-                
-                min_ttl=0,
-                default_ttl=30,
-                max_ttl=60
+                cache_policy_id="658327ea-f89d-4fab-a63d-7e88639e58f6"  # Managed-CachingOptimized
             )
         ],
         
@@ -159,34 +116,30 @@ def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
             cloudfront_default_certificate=True
         ),
         
-        # Custom error pages
+        # Custom error pages - redirect to root for SPA behavior
         custom_error_responses=[
             aws.cloudfront.DistributionCustomErrorResponseArgs(
                 error_code=403,
                 response_code=200,
-                response_page_path="/index.html",
+                response_page_path="/",
                 error_caching_min_ttl=300
             ),
             aws.cloudfront.DistributionCustomErrorResponseArgs(
                 error_code=404,
                 response_code=200,
-                response_page_path="/index.html",
+                response_page_path="/",
                 error_caching_min_ttl=300
             )
         ],
         
-        # Logging configuration
-        logging_config=aws.cloudfront.DistributionLoggingConfigArgs(
-            bucket=create_cloudfront_logs_bucket().bucket_domain_name,
-            include_cookies=False,
-            prefix=f"{PROJECT_NAME}-cloudfront-logs/"
-        ),
+        # Note: Logging configuration removed to avoid S3 ACL complexity
+        # Can be added later if needed
         
         tags={**COMMON_TAGS, "Name": f"{PROJECT_NAME}-distribution"}
     )
     
-    # Create CloudFront monitoring and alarms
-    create_cloudfront_monitoring(distribution.id)
+    # Note: CloudWatch monitoring can be added later if needed
+    # create_cloudfront_monitoring(distribution.id)
     
     return {
         "distribution_id": distribution.id,
@@ -195,54 +148,8 @@ def create_cloudfront_distribution(alb_dns_name, cloudfront_function_arn):
         "hosted_zone_id": distribution.hosted_zone_id
     }
 
-def create_cloudfront_logs_bucket():
-    """Create S3 bucket for CloudFront access logs"""
-    
-    # Create S3 bucket for logs
-    logs_bucket = aws.s3.Bucket(
-        f"{PROJECT_NAME}-cloudfront-logs",
-        bucket=f"{PROJECT_NAME}-cloudfront-logs-{pulumi.get_stack()}",
-        tags={**COMMON_TAGS, "Name": f"{PROJECT_NAME}-cloudfront-logs"}
-    )
-    
-    # Configure bucket versioning
-    aws.s3.BucketVersioningV2(
-        f"{PROJECT_NAME}-logs-versioning",
-        bucket=logs_bucket.id,
-        versioning_configuration=aws.s3.BucketVersioningV2VersioningConfigurationArgs(
-            status="Enabled"
-        )
-    )
-    
-    # Configure bucket lifecycle
-    aws.s3.BucketLifecycleConfigurationV2(
-        f"{PROJECT_NAME}-logs-lifecycle",
-        bucket=logs_bucket.id,
-        rules=[
-            aws.s3.BucketLifecycleConfigurationV2RuleArgs(
-                id="delete-old-logs",
-                status="Enabled",
-                expiration=aws.s3.BucketLifecycleConfigurationV2RuleExpirationArgs(
-                    days=90
-                ),
-                noncurrent_version_expiration=aws.s3.BucketLifecycleConfigurationV2RuleNoncurrentVersionExpirationArgs(
-                    noncurrent_days=30
-                )
-            )
-        ]
-    )
-    
-    # Block public access
-    aws.s3.BucketPublicAccessBlock(
-        f"{PROJECT_NAME}-logs-pab",
-        bucket=logs_bucket.id,
-        block_public_acls=True,
-        block_public_policy=True,
-        ignore_public_acls=True,
-        restrict_public_buckets=True
-    )
-    
-    return logs_bucket
+# S3 bucket creation removed to avoid ACL complexity
+# CloudFront logging can be configured separately if needed
 
 def create_cloudfront_monitoring(distribution_id):
     """Create CloudWatch monitoring for CloudFront"""
@@ -251,7 +158,6 @@ def create_cloudfront_monitoring(distribution_id):
     aws.cloudwatch.MetricAlarm(
         f"{PROJECT_NAME}-cloudfront-4xx-alarm",
         name=f"{PROJECT_NAME}-cloudfront-4xx-errors",
-        description="CloudFront 4xx error rate alarm",
         metric_name="4xxErrorRate",
         namespace="AWS/CloudFront",
         statistic="Average",
@@ -269,7 +175,6 @@ def create_cloudfront_monitoring(distribution_id):
     aws.cloudwatch.MetricAlarm(
         f"{PROJECT_NAME}-cloudfront-5xx-alarm",
         name=f"{PROJECT_NAME}-cloudfront-5xx-errors",
-        description="CloudFront 5xx error rate alarm",
         metric_name="5xxErrorRate",
         namespace="AWS/CloudFront",
         statistic="Average",

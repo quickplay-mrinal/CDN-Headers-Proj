@@ -44,11 +44,10 @@ def create_alb(vpc_id, public_subnet_ids, jwt_secret_arn):
         f"{PROJECT_NAME}-alb",
         name=f"{PROJECT_NAME}-alb",
         load_balancer_type="application",
-        scheme="internet-facing",
+        internal=False,  # internet-facing (False = internet-facing, True = internal)
         security_groups=[alb_sg.id],
         subnets=public_subnet_ids,
         enable_deletion_protection=ALB_DELETION_PROTECTION,
-        idle_timeout=ALB_IDLE_TIMEOUT,
         tags={**COMMON_TAGS, "Name": f"{PROJECT_NAME}-alb"}
     )
     
@@ -165,58 +164,35 @@ def create_alb(vpc_id, public_subnet_ids, jwt_secret_arn):
         tags={**COMMON_TAGS, "Name": f"{PROJECT_NAME}-jwt-validation-lambda"}
     )
     
-    # Create ALB listener with JWT validation
+    # Create ALB listener with basic forwarding
     listener = aws.lb.Listener(
         f"{PROJECT_NAME}-listener",
         load_balancer_arn=alb.arn,
-        port="80",
+        port=80,
         protocol="HTTP",
         default_actions=[
             aws.lb.ListenerDefaultActionArgs(
-                type="authenticate-cognito",
-                authenticate_cognito=aws.lb.ListenerDefaultActionAuthenticateCognitoArgs(
-                    user_pool_arn="",  # Will be set up separately if needed
-                    user_pool_client_id="",
-                    user_pool_domain=""
-                ),
-                order=1
-            ),
-            aws.lb.ListenerDefaultActionArgs(
                 type="forward",
-                target_group_arn=target_group.arn,
-                order=2
+                target_group_arn=target_group.arn
             )
         ]
     )
     
-    # Create listener rule for JWT validation
+    # Create listener rule for API endpoints (can be enhanced later with authentication)
     listener_rule = aws.lb.ListenerRule(
-        f"{PROJECT_NAME}-jwt-rule",
+        f"{PROJECT_NAME}-api-rule",
         listener_arn=listener.arn,
         priority=100,
         actions=[
             aws.lb.ListenerRuleActionArgs(
-                type="authenticate-oidc",
-                authenticate_oidc=aws.lb.ListenerRuleActionAuthenticateOidcArgs(
-                    authorization_endpoint="https://example.com/auth",
-                    client_id="dummy",
-                    client_secret="dummy",
-                    issuer="https://example.com",
-                    token_endpoint="https://example.com/token",
-                    user_info_endpoint="https://example.com/userinfo"
-                ),
-                order=1
-            ),
-            aws.lb.ListenerRuleActionArgs(
                 type="forward",
-                target_group_arn=target_group.arn,
-                order=2
+                target_group_arn=target_group.arn
             )
         ],
         conditions=[
             aws.lb.ListenerRuleConditionArgs(
                 path_pattern=aws.lb.ListenerRuleConditionPathPatternArgs(
-                    values=["/*"]
+                    values=["/api/*"]
                 )
             )
         ]

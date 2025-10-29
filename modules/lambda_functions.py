@@ -188,8 +188,15 @@ def create_lambda_functions(jwt_secret_arn):
     api_deployment = aws.apigateway.Deployment(
         f"{PROJECT_NAME}-api-deployment",
         rest_api=api_gateway.id,
-        stage_name="prod",
-        depends_on=[api_integration]
+        opts=pulumi.ResourceOptions(depends_on=[api_integration])
+    )
+    
+    # Create API Gateway stage
+    api_stage = aws.apigateway.Stage(
+        f"{PROJECT_NAME}-api-stage",
+        deployment=api_deployment.id,
+        rest_api=api_gateway.id,
+        stage_name="prod"
     )
     
     return {
@@ -205,23 +212,38 @@ def get_cloudfront_function_code():
 function handler(event) {
     var request = event.request;
     var headers = request.headers;
+    var uri = request.uri;
     
-    // Check for required headers
-    if (!headers['x-cdn-auth'] || !headers['authorization']) {
+    // Only validate headers for protected API endpoints, not for main page or static content
+    var protectedPaths = ['/api/protected', '/auth/me'];
+    var requiresAuth = false;
+    
+    for (var i = 0; i < protectedPaths.length; i++) {
+        if (uri.startsWith(protectedPaths[i])) {
+            requiresAuth = true;
+            break;
+        }
+    }
+    
+    // Only check authorization header for protected endpoints
+    if (requiresAuth && !headers['authorization']) {
         return {
             statusCode: 401,
             statusDescription: 'Unauthorized',
             headers: {
                 'content-type': { value: 'application/json' }
             },
-            body: JSON.stringify({ error: 'Missing required headers' })
+            body: JSON.stringify({ error: 'Authorization header required for protected endpoints' })
         };
     }
     
-    // Add security headers
+    // Add security headers for all requests
     request.headers['x-forwarded-proto'] = { value: 'https' };
     request.headers['x-cdn-validated'] = { value: 'true' };
     request.headers['x-request-id'] = { value: generateRequestId() };
+    
+    // Add CDN auth header for backend validation
+    request.headers['x-cdn-auth'] = { value: 'qp-iac-cdn-secret-key' };
     
     return request;
 }

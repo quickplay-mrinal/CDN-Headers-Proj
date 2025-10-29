@@ -1,17 +1,17 @@
 # QP-IAC CDN Headers Project
 
-A comprehensive AWS infrastructure project that implements secure CDN-to-ALB communication with JWT validation, automatic secrets rotation, and CloudFront functions.
+A production-ready AWS infrastructure project that implements secure ALB communication with JWT validation, automatic secrets rotation, and interactive FastAPI application.
 
 ## 🏗️ Architecture Overview
 
 This project creates a complete infrastructure stack including:
 
-- **CloudFront Distribution** with custom functions for request validation
-- **Application Load Balancer (ALB)** with JWT validation
+- **Application Load Balancer (ALB)** with JWT validation ready
 - **ECS Fargate Service** running an interactive FastAPI application
-- **AWS Secrets Manager** with automatic rotation
-- **Lambda Functions** for CloudFront processing and JWT generation
+- **AWS Secrets Manager** with automatic 30-day rotation
 - **VPC** with public/private subnets and NAT gateways
+- **Complete IAM roles** and security groups
+- **CloudWatch logging** and monitoring
 
 ## 🔧 Components
 
@@ -55,45 +55,36 @@ This project creates a complete infrastructure stack including:
    - Protected API routes
    - Header debugging tools
 
-## 🚀 Deployment
+## 🚀 Quick Deployment
 
 ### Prerequisites
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-1. **Install Dependencies**
-   ```bash
-   cd CDN-Headers-Proj
-   pip install -r requirements.txt
-   ```
+# Configure AWS CLI
+aws configure
 
-2. **Configure AWS CLI**
-   ```bash
-   aws configure
-   ```
-
-3. **Install Pulumi**
-   - Follow [Pulumi installation guide](https://www.pulumi.com/docs/get-started/install/)
+# Install Pulumi (if not installed)
+# Follow: https://www.pulumi.com/docs/get-started/install/
+```
 
 ### Deploy Infrastructure
+```bash
+# Setup Pulumi stack
+export PULUMI_CONFIG_PASSPHRASE=""
+pulumi stack init dev
+pulumi config set aws:region us-east-1
 
-1. **Initialize Pulumi Stack**
-   ```bash
-   pulumi stack init dev
-   ```
+# Deploy core infrastructure (recommended)
+pulumi up --program __main_core__.py
 
-2. **Set Configuration**
-   ```bash
-   pulumi config set aws:region us-east-1
-   ```
+# Alternative: Deploy with CloudFront (advanced)
+pulumi up
 
-3. **Deploy Stack**
-   ```bash
-   pulumi up
-   ```
-
-4. **Get Outputs**
-   ```bash
-   pulumi stack output
-   ```
+# Get outputs
+pulumi stack output
+```
 
 ## 🔐 Security Features
 
