@@ -1,0 +1,13 @@
+name: cdn-security-demo
+runtime: python
+description: AWS Infrastructure for CDN Security Approaches Demo
+
+template:
+  config:
+    aws:region:
+      description: The AWS region to deploy into
+      default: us-east-1
+    custom_header_secret:
+      description: Secret value for custom header approach (Approach 1)
+      default: super-secret-header-value-2024
+      secret: true
