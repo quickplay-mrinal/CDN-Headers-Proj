@@ -1,13 +1,12 @@
-name: cdn-security-demo
+name: cloudfront-jwt-security
 runtime: python
-description: AWS Infrastructure for CDN Security Approaches Demo
+description: CloudFront Function + JWT Security Infrastructure - All resources in ap-south-2 (CloudFront is global)
 
 template:
   config:
     aws:region:
-      description: The AWS region to deploy into
-      default: us-east-1
-    custom_header_secret:
-      description: Secret value for custom header approach (Approach 1)
-      default: super-secret-header-value-2024
-      secret: true
+      description: The AWS region to deploy infrastructure (default ap-south-2)
+      default: ap-south-2
+    aws_region:
+      description: Custom region configuration for the application
+      default: ap-south-2

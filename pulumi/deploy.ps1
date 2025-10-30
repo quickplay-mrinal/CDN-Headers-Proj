@@ -2,7 +2,7 @@
 
 param(
     [string]$StackName = "dev",
-    [string]$Region = "us-east-1"
+    [string]$Region = "ap-south-2"
 )
 
 Write-Host "🚀 CloudFront Function + JWT Security - Deployment Script" -ForegroundColor Cyan
@@ -46,12 +46,30 @@ try {
 Write-Host ""
 
 # Install Python dependencies
-Write-Host "📦 Installing Python dependencies..." -ForegroundColor Yellow
+Write-Host "Installing Python dependencies..." -ForegroundColor Yellow
 try {
     pip install -r requirements.txt --quiet
-    Write-Host "✅ Dependencies installed successfully" -ForegroundColor Green
+    Write-Host "Dependencies installed successfully" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Failed to install dependencies" -ForegroundColor Red
+    Write-Host "Failed to install dependencies" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+
+# Validate modules
+Write-Host "Validating infrastructure modules..." -ForegroundColor Yellow
+try {
+    $validationResult = python validate.py
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Module validation passed" -ForegroundColor Green
+    } else {
+        Write-Host "Module validation failed" -ForegroundColor Red
+        Write-Host $validationResult -ForegroundColor Yellow
+        exit 1
+    }
+} catch {
+    Write-Host "Failed to run validation" -ForegroundColor Red
     exit 1
 }
 
@@ -81,7 +99,9 @@ Write-Host "⚙️ Configuring stack..." -ForegroundColor Yellow
 
 # Set AWS region
 pulumi config set aws:region $Region
+pulumi config set aws_region $Region
 Write-Host "✅ Set AWS region: $Region" -ForegroundColor Green
+Write-Host "ℹ️ All resources will be deployed in $Region (except CloudFront which is global)" -ForegroundColor Blue
 
 Write-Host ""
 

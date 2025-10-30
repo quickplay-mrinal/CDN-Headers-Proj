@@ -9,20 +9,32 @@ $ALB_DNS = pulumi stack output alb_dns_name
 $CF_DOMAIN = pulumi stack output cloudfront_domain_name  
 $SAMPLE_JWT = pulumi stack output sample_jwt_token
 
+$REGION = pulumi stack output region
+
+Write-Host "✅ Region: $REGION" -ForegroundColor Green
 Write-Host "✅ ALB DNS: $ALB_DNS" -ForegroundColor Green
 Write-Host "✅ CloudFront Domain: $CF_DOMAIN" -ForegroundColor Green
 Write-Host "✅ Sample JWT: [REDACTED]" -ForegroundColor Green
 Write-Host ""
 
 # Test Direct ALB Access (Insecure)
-Write-Host "🔍 Testing Direct ALB Access (Bypassing CloudFront)" -ForegroundColor Cyan
-Write-Host "--------------------------------------------------" -ForegroundColor Cyan
+Write-Host "Testing Direct ALB Access (Bypassing CloudFront)" -ForegroundColor Cyan
+Write-Host "------------------------------------------------" -ForegroundColor Cyan
 
-Write-Host "⚠️  Test 1: Direct ALB access (insecure - bypasses JWT validation)" -ForegroundColor Yellow
+Write-Host "Test 1: ALB Health Check" -ForegroundColor Yellow
+try {
+    $healthResponse = Invoke-WebRequest -Uri "http://$ALB_DNS/health" -UseBasicParsing -ErrorAction SilentlyContinue
+    Write-Host "Health Check Status: $($healthResponse.StatusCode) - ALB is healthy" -ForegroundColor Green
+} catch {
+    Write-Host "Health Check Status: $($_.Exception.Response.StatusCode.value__) - ALB may have issues" -ForegroundColor Red
+}
+Write-Host ""
+
+Write-Host "Test 2: Direct ALB access (insecure - bypasses JWT validation)" -ForegroundColor Yellow
 try {
     $response1 = Invoke-WebRequest -Uri "http://$ALB_DNS" -UseBasicParsing -ErrorAction SilentlyContinue
     Write-Host "Status: $($response1.StatusCode) - ALB accessible without JWT!" -ForegroundColor Red
-    Write-Host "⚠️  This shows why ALB should be private or have additional security" -ForegroundColor Yellow
+    Write-Host "This shows why ALB should be private or have additional security" -ForegroundColor Yellow
 } catch {
     Write-Host "Status: $($_.Exception.Response.StatusCode.value__)" -ForegroundColor Yellow
 }

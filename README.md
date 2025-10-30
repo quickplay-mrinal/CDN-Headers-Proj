@@ -18,8 +18,20 @@ Instead of using AWS's suggested custom header approach (which has security and 
 ```
 CDN-Headers-Proj/
 └── 🏗️ pulumi/              # AWS infrastructure as code
-    ├── __main__.py         # Pulumi infrastructure definition
-    ├── deploy.ps1          # Automated deployment script
+    ├── __main__.py         # Main Pulumi orchestration
+    ├── __main___simple.py  # Simplified architecture (public subnets)
+    ├── config.py           # Configuration and region settings
+    ├── modules/            # Modular infrastructure components
+    │   ├── vpc.py          # VPC with NAT Gateway (full version)
+    │   ├── vpc_simple.py   # VPC with public subnets only (recommended)
+    │   ├── security_groups.py  # Security groups
+    │   ├── iam.py          # IAM roles and policies
+    │   ├── ec2.py          # EC2 launch template and ASG
+    │   ├── alb.py          # Application Load Balancer
+    │   └── cloudfront.py   # CloudFront distribution and JWT function
+    ├── deploy-simple.ps1   # Simplified deployment (recommended)
+    ├── use-simplified-architecture.ps1  # Switch to public subnets
+    ├── select-region.ps1   # Interactive region selection
     ├── README.md           # Detailed infrastructure documentation
     └── scripts/
         └── test-approaches.ps1  # JWT security testing script
@@ -28,25 +40,37 @@ CDN-Headers-Proj/
 ## 🚀 Quick Start
 
 ### Deploy AWS Infrastructure
+
+#### Option 1: Simplified Architecture (Recommended)
 ```powershell
 # Navigate to Pulumi directory
 cd pulumi
 
-# Deploy infrastructure with one command
-.\deploy.ps1
+# Switch to simplified architecture (public subnets)
+.\use-simplified-architecture.ps1
 
-# Test the JWT security
-.\scripts\test-approaches.ps1
+# Deploy simplified architecture
+.\deploy-simple.ps1
 ```
 
-### Manual Deployment
+#### Option 2: Interactive Region Selection
+```powershell
+# Interactive region selection and deployment
+.\select-region.ps1
+```
+
+#### Option 3: Manual Deployment
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
+# Switch to simplified architecture
+Copy-Item __main___simple.py __main__.py
+
 # Initialize Pulumi stack
 pulumi stack init dev
-pulumi config set aws:region us-east-1
+pulumi config set aws:region ap-south-2
+pulumi config set aws_region ap-south-2
 
 # Deploy infrastructure
 pulumi up
